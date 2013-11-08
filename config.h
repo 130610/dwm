@@ -1,7 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const char font[]            = "-*-gohufont-medium-*-*-*-14-*-*-*-*-*-*-*";
+static const char font[]            = "Ubuntu Mono:size=12";
 static const char normbordercolor[] = "#E5E5E5";
 static const char normbgcolor[]     = "#2D2D2D";
 static const char normfgcolor[]     = "#BBBBBB";
