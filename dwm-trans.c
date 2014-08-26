@@ -177,7 +177,6 @@ static void detachstack(Client *c);
 static void die(const char *errstr, ...);
 static Monitor *dirtomon(int dir);
 static void drawbar(Monitor *m);
-static void drawvline(unsigned long col[ColLast]);
 static void drawbars(void);
 static void drawsquare(Bool filled, Bool empty, Bool invert, XftColor col[ColLast]);
 static void drawtext(const char *text, XftColor col[ColLast], Bool invert);
@@ -714,15 +713,12 @@ dirtomon(int dir) {
 
 void
 drawbar(Monitor *m) {
-	int x, ow, mw = 0, extra, tw;
-	unsigned int i, n = 0, occ = 0, urg = 0;
+	int x;
+	unsigned int i, occ = 0, urg = 0;
 	XftColor *col;
-	Client *c, *firstvis, *lastvis = NULL;
-	DC seldc;
+	Client *c;
 
 	for(c = m->clients; c; c = c->next) {
-		if(ISVISIBLE(c))
-			n++;
 		occ |= c->tags;
 		if(c->isurgent)
 			urg |= c->tags;
@@ -751,61 +747,16 @@ drawbar(Monitor *m) {
 	}
 	else
 		dc.x = m->ww;
-
-	for(c = m->clients; c && !ISVISIBLE(c); c = c->next);
-	firstvis = c;
-
-	col = m == selmon ? dc.sel : dc.norm;
-	dc.w = dc.x - x;
-	dc.x = x;
-
-	if(n > 0) {
-		mw = dc.w / n;
-		extra = 0;
-		seldc = dc;
-		i = 0;
-
-		while(c) {
-			lastvis = c;
-			tw = TEXTW(c->name);
-			if(tw < mw) extra += (mw - tw); else i++;
-			for(c = c->next; c && !ISVISIBLE(c); c = c->next);
+	if((dc.w = dc.x - x) > bh) {
+		dc.x = x;
+		if(m->sel) {
+			col = m == selmon ? dc.sel : dc.norm;
+			drawtext(m->sel->name, col, False);
+			drawsquare(m->sel->isfixed, m->sel->isfloating, False, col);
 		}
-		if(i > 0) mw += extra / i;
-
-		c = firstvis;
-		x = dc.x;
+		else
+			drawtext(NULL, dc.norm, False);
 	}
-
-	while(dc.w > bh) {
-		if(c) {
-			ow = dc.w;
-			tw = TEXTW(c->name);
-			dc.w = MIN(ow, tw);
-
-			if(dc.w > mw) dc.w = mw;
-			if(m->sel == c) seldc = dc;
-			if(c == lastvis) dc.w = ow;
-
-			drawtext(c->name, col, True);
-			if(c != firstvis) drawvline(col);
-			drawsquare(c->isfixed, c->isfloating, True, col);
-
-			dc.x += dc.w;
-			dc.w = ow - dc.w;
-			for(c = c->next; c && !ISVISIBLE(c); c = c->next);
-		} else {
- 			drawtext(NULL, dc.norm, False);
-			break;
-		}
-	}
-
-	if(m == selmon && m->sel && ISVISIBLE(m->sel)) {
-		dc = seldc;
-		drawtext(m->sel->name, col, False);
-		drawsquare(m->sel->isfixed, m->sel->isfloating, False, col);
-	}
-
 	XCopyArea(dpy, dc.drawable, m->barwin, dc.gc, 0, 0, m->ww, bh, 0, 0);
 	XSync(dpy, False);
 }
@@ -816,15 +767,6 @@ drawbars(void) {
 
 	for(m = mons; m; m = m->next)
 		drawbar(m);
-}
-
-void
-drawvline(unsigned long col[ColLast]) {
-	XGCValues gcv;
-
-	gcv.foreground = col[ColFG];
-	XChangeGC(dpy, dc.gc, GCForeground, &gcv);
-	XDrawLine(dpy, dc.drawable, dc.gc, dc.x, dc.y, dc.x, dc.y + (dc.font.ascent + dc.font.descent + 2));
 }
 
 void
@@ -1348,7 +1290,8 @@ propertynotify(XEvent *e) {
 		}
 		if(ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
-			drawbar(c->mon);
+			if(c == c->mon->sel)
+				drawbar(c->mon);
 		}
 		if(ev->atom == netatom[NetWMWindowType])
 			updatewindowtype(c);
@@ -1625,7 +1568,7 @@ setup(void) {
 	initfont(font);
 	sw = DisplayWidth(dpy, screen);
 	sh = DisplayHeight(dpy, screen);
-	bh = dc.h = dc.font.height + barmargin;
+	bh = dc.h = dc.font.height + 2;
 	updategeom();
 	/* init atoms */
 	wmatom[WMProtocols] = XInternAtom(dpy, "WM_PROTOCOLS", False);
@@ -1851,11 +1794,15 @@ updatebars(void) {
 		.override_redirect = True,
 		.background_pixmap = ParentRelative,
 		.event_mask = ButtonPressMask|ExposureMask
+		.colormap = XCreateColormap(dpy, DefaultRootWindow(dpy), vinfo.visual, AllocNone);
+		.border_pixel = 0;
+		.background_pixel = 0;
+
 	};
 	for(m = mons; m; m = m->next) {
-		m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, DefaultDepth(dpy, screen),
-		                          CopyFromParent, DefaultVisual(dpy, screen),
-		                          CWOverrideRedirect|CWBackPixmap|CWEventMask, &wa);
+		m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, vinfo.depth,
+		                          CopyFromParent, vinfo.visual,
+		                          CWOverrideRedirect|CWBackPixmap|CWEventMask|CWColormap|CWBorderPixel|CWBackPixel, &wa);
 		XDefineCursor(dpy, m->barwin, cursor[CurNormal]);
 		XMapRaised(dpy, m->barwin);
 	}
