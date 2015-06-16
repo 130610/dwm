@@ -1,7 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const char font[]            = "DejaVuSansLight:pixelsize=24";
+static const char font[]            = "DejaVuSansLight:size=18";
 static const char normbordercolor[] = "#444444";
 static const char normbgcolor[]     = "#222222";
 static const char normfgcolor[]     = "#bbbbbb";
@@ -19,6 +19,8 @@ static const char *tags[] = { "1", "2", "3", "4", "5" };
 
 static const Rule rules[] = {
 	/* class      instance    title       tags mask     isfloating   monitor */
+	{ "Chromium", NULL,       NULL,       1 << 1,        False,       -1 },
+	{ "mupdf",    NULL,       NULL,       1 << 2,        False,       -1 },
 	{ "Steam",    NULL,       NULL,       1 << 3,        False,       -1 },
 };
 
